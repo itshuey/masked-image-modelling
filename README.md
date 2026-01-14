@@ -1,13 +1,24 @@
-# Self-Supervised Pre-training for Image Segmentation with VisionTransformer
+# Diminishing Returns in Self-Supervised Learning
 
 This is an implementation of *[Simple Masked Image Modelling (SimMIM)](https://arxiv.org/abs/2111.09886)*, a self-supervised learning framework for pre-training vision transformers for downstream tasks such as classification or segmentation. A [VisionTransformer](https://arxiv.org/abs/2010.11929) model is pre-trained on the [ImageNet-1K](https://www.image-net.org/) dataset and fine-tuned on the [Oxford-IIIT Pets](https://www.robots.ox.ac.uk/~vgg/data/pets/) dataset for segmentation.
-Additionally, we investigate the effects of intermediate fine-tuning on the [Intel Image Classification](https://www.kaggle.com/datasets/puneet6060/intel-image-classification) dataset, performed before segmentation training. See the [technical report](report.pdf) for details.
+
+We investigate the effects of intermediate fine-tuning on the [Intel Image Classification](https://www.kaggle.com/datasets/puneet6060/intel-image-classification) dataset with both global (classification-based) and spatially aligned (patchwise) supervision, performed before segmentation training. To analyze how these intermediate objectives reshape internal representations, we include patch-level diagnostics and visualizations, such as variance decomposition, cosine similarity as a function of spatial distance, linear patch probes, and qualitative patch-token similarity heatmaps. These tools make explicit how different forms of supervision affect patch-level geometry and downstream performance. See the [technical report](arxiv.pdf) for details.
 
 Four random reconstruction samples from the pre-trained encoder (from left to right: original image, masked image and reconstruction):
 ![Reconstruction Examples](figures/reconstructions.png)
 
 Four random samples of segmentation predictions from the fine-tuned model (from left to right: original image, ground-truth segmentation map and predicted map):
 ![Segmentation Examples](figures/segmented.png)
+
+After intermediate fine-tuning under different supervision geometries, we visualize the resulting patch-level representation structure by plotting cosine similarity between a reference patch token and all other patches in the image. These visualizations reveal how classification-based intermediate objectives disrupt spatial coherence, while spatially aligned supervision preserves localized and semantically organized patch structure: 
+<p align="center">
+  <img
+    src="figures/patch-level-structure.png"
+    alt="Patch-Level Structure"
+    style="width:50%; min-width:300px; max-width:600px;"
+  >
+</p>
+
 
 ### Requirements
 This project requires Python 3.10 and packages listed in `requirements.txt`.
@@ -50,7 +61,7 @@ wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_train.tar --no-check-
    
    Loss is printed every epoch while test set pixel accuracy and mean IoU is calculated after training is complete.
    Segmentation predictions will be saved under `/figures/`. Change the train size to reproduce results from the report.
-1. To run a baseline model with **no pre-training**, omit the `--weights` argument, i.e. use the following command:
+2. To run a baseline model with **no pre-training**, omit the `--weights` argument, i.e. use the following command:
    ```bash
 	python main_finetune.py \
 		--config vit_4M_finetune \
@@ -58,7 +69,7 @@ wget https://image-net.org/data/ILSVRC/2012/ILSVRC2012_img_train.tar --no-check-
 		--test_size 1000
 	```
 
-### Intermediate-Task Fine-Tuning on Intel Image Classification Dataset
+### Intermediate Classification Fine-Tuning on Intel Image Classification Dataset
 With the pre-trained encoder weights in the `/weights/` folder, run the following command to perform intermediate fine-tuning on this dataset, followed by segmentation fine-tuning on Oxford-IIIT Pets:
 ```bash
 python main_finetune.py \
@@ -90,4 +101,22 @@ To evaluate a fine-tuned segmentation model on the Oxford-IIIt Pets test set, us
 		--weights weights/vit_4M_finetune_data_250.pth \
 		--test_size 1000 \
 		--train_size 250
+```
+
+### Visualizing Supervision Geometry
+1. First, train separate encoder variants under different intermediate supervision objectives (classification-based and spatial) starting from the same pretrained checkpoint. The objectives described in the technical report are defined at the top of `main_intermediates.py`:
+```bash
+	python main_intermediates.py \
+		--config vit_4M_finetune \
+		--pretrained-path weights/mim_vit_4M_pretrain_200K.pth
+```
+
+2. Then, report diagnostics such as variance decomposition and cosine similarity as a function of spatial distance. When enabled, the visualization flag produces patch-token cosine similarity heatmaps (reference patch vs. all patches), while the probe flag reports final patch-level classification accuracy on frozen representations.
+```bash
+	python diagnostics.py \
+		--config vit_4M_finetune \
+		--verbose \
+		--viz-patch-sim \
+		--viz-savepath figures/patch_sim.png \
+		--do-probe
 ```

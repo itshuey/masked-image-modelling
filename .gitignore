@@ -160,10 +160,10 @@ cython_debug/
 #.idea/
 
 #data, figures, and models
-*.png
-*.jpg
-*.JPEG
-*.jpeg
+# *.png
+# *.jpg
+# *.JPEG
+# *.jpeg
 *.tar*
 *.bin
 *data/*
